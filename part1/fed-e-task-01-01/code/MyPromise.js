@@ -26,10 +26,10 @@ class MyPromise {
     }
 
     static all(promisesArr) {
+        let results = []
         return new MyPromise((resolve, reject) => {
             let count = 0
             const arrLength = promisesArr.length
-            const results = []
             promisesArr.forEach((promise, index) => {
                 MyPromise.resolve(promise).then(res => {
                     count ++
@@ -66,9 +66,9 @@ class MyPromise {
     }
 
     _resolve = (value) => {
-        if (value && (typeof value === 'function' || typeof value === 'object')) { // 判断是否promise对象
+        if (value instanceof MyPromise) { // 判断是否promise对象
             const then = value.then // 调用传入promise的then方法
-            then.call(value, this._resolve.bind(this), this._reject.bind(this))
+            then(this.resolve, this._reject)
             return
         }
         this.state = 'fullfilled' // 改变状态
