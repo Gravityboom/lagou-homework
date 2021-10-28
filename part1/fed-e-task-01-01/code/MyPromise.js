@@ -3,13 +3,13 @@
 */
 
 class MyPromise {
+    constructor(executor) {
+        executor(this._resolve, this._reject)
+    }
+
     callbacks = []
     state = 'pending' // 状态
     value = null
-
-    constructor(fn) {
-        fn(this._resolve.bind(this), this._reject.bind(this))
-    }
 
     static resolve(value) {
         if (value instanceof MyPromise) return value // 是promise对象时，直接返回该对象
@@ -25,30 +25,47 @@ class MyPromise {
         return new Promise((resolve, reject) => reject(value))
     }
 
-    then(fullfilledFn, rejectedFn) {
+    static all(promisesArr) {
+        return new MyPromise((resolve, reject) => {
+            let count = 0
+            const arrLength = promisesArr.length
+            const results = []
+            promisesArr.forEach((promise, index) => {
+                MyPromise.resolve(promise).then(res => {
+                    count ++
+                    results[index] = res
+                    if (count === arrLength) {
+                        resolve(results)
+                    }
+                }, reason => reject(reason))
+            })
+        })
+    }
+
+    then(successCallback, failCallback) {
         return new MyPromise((resolve, reject) => {
             this._handle({
-                fullfilledFn,
-                rejectedFn,
+                successCallback,
+                failCallback,
                 resolve,
                 reject,
             })
         })
     }
 
-    _handle(callback) {
+    _handle = (callbackObj) => {
         if (this.state === 'pending') { // pending状态，加入队列
-            this.callbacks.push(callback)
+            this.callbacks.push(callbackObj)
         }
 
-        let cb = this.state === 'fullfilled' ? callback.fullfilledFn : callback.rejectedFn
+        let callbackFn = this.state === 'fullfilled' ? callbackObj.successCallback : callbackObj.failCallback
 
-        const ret = cb(this.value)
-        cb = this.state === 'fullfilled' ? callback.resolve : callback.reject
-        cb(ret)
+        const ret = callbackFn(this.value)
+        callbackFn = this.state === 'fullfilled' ? callbackObj.resolve : callbackObj.reject
+        callbackFn(ret)
     }
 
-    _resolve(value) {
+    _resolve = (value) => {
         if (value && (typeof value === 'function' || typeof value === 'object')) { // 判断是否promise对象
             const then = value.then // 调用传入promise的then方法
             then.call(value, this._resolve.bind(this), this._reject.bind(this))
@@ -59,9 +76,9 @@ class MyPromise {
         this.callbacks.forEach(callback => this._handle(callback))
     }
 
-    _reject(error) {
+    _reject = (reason) => {
         this.state = 'rejected'
-        this.value = error
+        this.value = reason
         this.callbacks.forEach(callback => this._handle(callback))
     }
 
